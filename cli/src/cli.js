@@ -39,8 +39,11 @@ cli
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'broadcast') {
         server.write(new Message({ username, command, contents }).toJSON() + '\n')
-    }
-    else {
+    } else if (command.startsWith('TO')) { // TODO fix this later so it works with '@'
+        server.write(new Message({ username, command, contents }).toJSON() + '\n')
+    } else if (command === 'users') {
+        server.write(new Message({ username, command, contents }).toJSON() + '\n')
+    } else {
       this.log(`Command <${command}> was not recognized`)
     }
 

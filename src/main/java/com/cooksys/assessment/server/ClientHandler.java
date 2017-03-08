@@ -7,7 +7,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.text.MessageFormat;
-import java.util.Date;
+import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +19,8 @@ public class ClientHandler implements Runnable {
 	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
 
 	private Socket socket;
+
+	public static Map<String, ClientHandler> activeUserMap = new HashMap<>();
 
 	public ClientHandler(Socket socket) {
 		super();
@@ -36,9 +38,17 @@ public class ClientHandler implements Runnable {
 				String raw = reader.readLine();
 				Message message = mapper.readValue(raw, Message.class);
 
+				// Direct message to a user
+				// HACK! will fix this later
+				if (message.getCommand().startsWith("TO")) {
+					// Empty for now, TODO
+				}
+
 				switch (message.getCommand()) {
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
+
+						addActiveUser(message.getUsername(), this);
 
 						Object[] connectArgs = {new Date(), message.getUsername()};
 						MessageFormat rawConnectString = new MessageFormat("{0} <{1}> has connected");
@@ -84,6 +94,19 @@ public class ClientHandler implements Runnable {
 						String messageToBroadCast = mapper.writeValueAsString(message);
 						sendMessageToAllActiveUsers(messageToBroadCast);
 						break;
+					case "users":
+						log.info("user <{}> requested active users", message.getUsername());
+						List<String> activeUsers = getAllActiveUsers();
+
+						String rawActiveUsersString = new Date() + ": currently connected users:";
+						for (String user : activeUsers) {
+							rawActiveUsersString += "\n" + "<" + user + ">";
+						}
+
+						message.setContents(rawActiveUsersString);
+						String activeUsersString = mapper.writeValueAsString(message);
+						writer.write(activeUsersString);
+						writer.flush();
 				}
 			}
 
@@ -92,7 +115,7 @@ public class ClientHandler implements Runnable {
 		}
 	}
 
-	public void sendMessageToAllActiveUsers(String messageToSend) {
+	private void sendMessageToAllActiveUsers(String messageToSend) {
 		for (ClientHandler client : Server.activeUserList) {
 			try {
 				Socket clientSocket = client.getSocket();
@@ -105,6 +128,16 @@ public class ClientHandler implements Runnable {
 			}
 		}
 	}
+
+	private void addActiveUser(String userName, ClientHandler clientHandler) {
+		activeUserMap.put(userName, clientHandler);
+	}
+
+	private List<String> getAllActiveUsers(){
+		List<String> currentActiveUsers = new ArrayList<>(activeUserMap.keySet());
+		return currentActiveUsers;
+	}
+
 
 	public Socket getSocket() {
 		return socket;

@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.text.MessageFormat;
+import java.util.Date;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +50,17 @@ public class ClientHandler implements Runnable {
 						writer.write(response);
 						writer.flush();
 						break;
+					case "broadcast":
+						log.info("user <{}> broadcast message <{}>", message.getUsername(), message.getContents());
+						// `${timestamp} <${username}> (all): ${contents}`
+						Object[] args = {new Date(), message.getUsername(), message.getContents()};
+						MessageFormat unformattedString = new MessageFormat("{0} <{1}> (all): {2}");
+						String formattedString = unformattedString.format(args);
+						message.setContents(formattedString);
+						String messageToBroadCast = mapper.writeValueAsString(message);
+						System.out.println(messageToBroadCast);
+						sendMessageToAllActiveUsers(messageToBroadCast);
+						break;
 				}
 			}
 
@@ -56,4 +69,25 @@ public class ClientHandler implements Runnable {
 		}
 	}
 
+	public void sendMessageToAllActiveUsers(String messageToSend) {
+		for (ClientHandler client : Server.activeUserList) {
+			try {
+				Socket clientSocket = client.getSocket();
+				PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+				printWriter.write(messageToSend);
+				printWriter.flush();
+			} catch (IOException e) {
+				log.error("Error sending message to all users");
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public Socket getSocket() {
+		return socket;
+	}
+
+	public void setSocket(Socket socket) {
+		this.socket = socket;
+	}
 }

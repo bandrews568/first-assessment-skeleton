@@ -39,9 +39,26 @@ public class ClientHandler implements Runnable {
 				switch (message.getCommand()) {
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
+
+						Object[] connectArgs = {new Date(), message.getUsername()};
+						MessageFormat unformattedConnectString = new MessageFormat("{0} <{1}> has connected");
+						String connectFormattedString = unformattedConnectString.format(connectArgs);
+						message.setContents(connectFormattedString);
+
+						String messageUserHasConnected = mapper.writeValueAsString(message);
+						sendMessageToAllActiveUsers(messageUserHasConnected);
 						break;
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
+
+						Object[] disconnectArgs = {new Date(), message.getUsername()};
+						MessageFormat unformattedDisconnectString = new MessageFormat("{0} <{1}> has disconnected");
+						String disconnectFormattedString = unformattedDisconnectString.format(disconnectArgs);
+						message.setContents(disconnectFormattedString);
+
+						String messageUserHasDisconnected = mapper.writeValueAsString(message);
+						sendMessageToAllActiveUsers(messageUserHasDisconnected);
+
 						this.socket.close();
 						break;
 					case "echo":
@@ -52,13 +69,13 @@ public class ClientHandler implements Runnable {
 						break;
 					case "broadcast":
 						log.info("user <{}> broadcast message <{}>", message.getUsername(), message.getContents());
-						// `${timestamp} <${username}> (all): ${contents}`
-						Object[] args = {new Date(), message.getUsername(), message.getContents()};
-						MessageFormat unformattedString = new MessageFormat("{0} <{1}> (all): {2}");
-						String formattedString = unformattedString.format(args);
+
+						Object[] broadcastArgs = {new Date(), message.getUsername(), message.getContents()};
+						MessageFormat unformattedBroadcastString = new MessageFormat("{0} <{1}> (all): {2}");
+						String formattedString = unformattedBroadcastString.format(broadcastArgs);
 						message.setContents(formattedString);
+
 						String messageToBroadCast = mapper.writeValueAsString(message);
-						System.out.println(messageToBroadCast);
 						sendMessageToAllActiveUsers(messageToBroadCast);
 						break;
 				}

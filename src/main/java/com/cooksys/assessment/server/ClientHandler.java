@@ -20,6 +20,8 @@ public class ClientHandler implements Runnable {
 
 	private Socket socket;
 
+	private String lastCommand;
+
 	public static Map<String, ClientHandler> activeUserMap = new HashMap<>();
 
 	public ClientHandler(Socket socket) {
@@ -29,7 +31,6 @@ public class ClientHandler implements Runnable {
 
 	public void run() {
 		try {
-
 			ObjectMapper mapper = new ObjectMapper();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
@@ -39,9 +40,31 @@ public class ClientHandler implements Runnable {
 				Message message = mapper.readValue(raw, Message.class);
 
 				// Direct message to a user
-				// HACK! will fix this later
-				if (message.getCommand().startsWith("TO")) {
-					// Empty for now, TODO
+				// TODO HACK! will fix this later to use '@'
+				if (message.getCommand().startsWith("to")) {
+					String username = message.getCommand().substring(2);
+					boolean receiverIsActiveUser = activeUserMap.containsKey(username);
+
+					if (receiverIsActiveUser) {
+						ClientHandler targetUser = activeUserMap.get(username);
+
+						Object[] messageArgs = {new Date(), message.getUsername(), message.getContents()};
+						MessageFormat rawMessageString = new MessageFormat("{0} <{1}> (whisper): {2}");
+						String messageFormattedString = rawMessageString.format(messageArgs);
+						message.setContents(messageFormattedString);
+
+						String messageToUser = mapper.writeValueAsString(message);
+
+						sendDirectMessageToUser(targetUser, messageToUser);
+					} else {
+						String noSuchUser = "No such user: " + username;
+						message.setContents(noSuchUser);
+
+						String errorResponse = mapper.writeValueAsString(message);
+						writer.write(errorResponse);
+						writer.flush();
+ 					}
+
 				}
 
 				switch (message.getCommand()) {
@@ -58,6 +81,7 @@ public class ClientHandler implements Runnable {
 						String messageUserHasConnected = mapper.writeValueAsString(message);
 						sendMessageToAllActiveUsers(messageUserHasConnected);
 						break;
+
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
 
@@ -71,6 +95,7 @@ public class ClientHandler implements Runnable {
 
 						this.socket.close();
 						break;
+
 					case "echo":
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
 
@@ -83,6 +108,7 @@ public class ClientHandler implements Runnable {
 						writer.write(response);
 						writer.flush();
 						break;
+
 					case "broadcast":
 						log.info("user <{}> broadcast message <{}>", message.getUsername(), message.getContents());
 
@@ -94,10 +120,12 @@ public class ClientHandler implements Runnable {
 						String messageToBroadCast = mapper.writeValueAsString(message);
 						sendMessageToAllActiveUsers(messageToBroadCast);
 						break;
+
 					case "users":
 						log.info("user <{}> requested active users", message.getUsername());
 						List<String> activeUsers = getAllActiveUsers();
-
+						// TODO the date comes out different here
+						// Example: Wed Mar 08 14:33:09 CST 2017
 						String rawActiveUsersString = new Date() + ": currently connected users:";
 						for (String user : activeUsers) {
 							rawActiveUsersString += "\n" + "<" + user + ">";
@@ -126,6 +154,18 @@ public class ClientHandler implements Runnable {
 				log.error("Error sending message to all users");
 				e.printStackTrace();
 			}
+		}
+	}
+
+	private void sendDirectMessageToUser(ClientHandler targetUser, String messageToSend) {
+		Socket targetSocket = targetUser.getSocket();
+		try {
+			PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(targetSocket.getOutputStream()));
+			printWriter.write(messageToSend);
+			printWriter.flush();
+		} catch (IOException e) {
+			log.error("Error sending direct message");
+			e.printStackTrace();
 		}
 	}
 

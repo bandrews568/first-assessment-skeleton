@@ -41,8 +41,8 @@ public class ClientHandler implements Runnable {
 						log.info("user <{}> connected", message.getUsername());
 
 						Object[] connectArgs = {new Date(), message.getUsername()};
-						MessageFormat unformattedConnectString = new MessageFormat("{0} <{1}> has connected");
-						String connectFormattedString = unformattedConnectString.format(connectArgs);
+						MessageFormat rawConnectString = new MessageFormat("{0} <{1}> has connected");
+						String connectFormattedString = rawConnectString.format(connectArgs);
 						message.setContents(connectFormattedString);
 
 						String messageUserHasConnected = mapper.writeValueAsString(message);
@@ -52,8 +52,8 @@ public class ClientHandler implements Runnable {
 						log.info("user <{}> disconnected", message.getUsername());
 
 						Object[] disconnectArgs = {new Date(), message.getUsername()};
-						MessageFormat unformattedDisconnectString = new MessageFormat("{0} <{1}> has disconnected");
-						String disconnectFormattedString = unformattedDisconnectString.format(disconnectArgs);
+						MessageFormat rawDisconnectString = new MessageFormat("{0} <{1}> has disconnected");
+						String disconnectFormattedString = rawDisconnectString.format(disconnectArgs);
 						message.setContents(disconnectFormattedString);
 
 						String messageUserHasDisconnected = mapper.writeValueAsString(message);
@@ -63,6 +63,12 @@ public class ClientHandler implements Runnable {
 						break;
 					case "echo":
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
+
+						Object[] echoArgs = {new Date(), message.getUsername(), message.getContents()};
+						MessageFormat rawEchoString = new MessageFormat("{0} <{1}> (echo): {2}");
+						String echoFormattedString = rawEchoString.format(echoArgs);
+						message.setContents(echoFormattedString);
+
 						String response = mapper.writeValueAsString(message);
 						writer.write(response);
 						writer.flush();
@@ -71,8 +77,8 @@ public class ClientHandler implements Runnable {
 						log.info("user <{}> broadcast message <{}>", message.getUsername(), message.getContents());
 
 						Object[] broadcastArgs = {new Date(), message.getUsername(), message.getContents()};
-						MessageFormat unformattedBroadcastString = new MessageFormat("{0} <{1}> (all): {2}");
-						String formattedString = unformattedBroadcastString.format(broadcastArgs);
+						MessageFormat rawBroadcastString = new MessageFormat("{0} <{1}> (all): {2}");
+						String formattedString = rawBroadcastString.format(broadcastArgs);
 						message.setContents(formattedString);
 
 						String messageToBroadCast = mapper.writeValueAsString(message);

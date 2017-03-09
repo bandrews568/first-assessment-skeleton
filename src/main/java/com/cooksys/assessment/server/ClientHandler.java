@@ -7,8 +7,10 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.text.MessageFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,8 +21,6 @@ public class ClientHandler implements Runnable {
 	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
 
 	private Socket socket;
-
-	private String lastCommand;
 
 	public static Map<String, ClientHandler> activeUserMap = new HashMap<>();
 
@@ -41,16 +41,15 @@ public class ClientHandler implements Runnable {
 
 				// Direct message to a user
 				// TODO HACK! will fix this later to use '@'
-				if (message.getCommand().startsWith("to")) {
-					String username = message.getCommand().substring(2);
+				if (message.getCommand().startsWith("@")) {
+					String username = message.getCommand().substring(1);
 					boolean receiverIsActiveUser = activeUserMap.containsKey(username);
 
 					if (receiverIsActiveUser) {
 						ClientHandler targetUser = activeUserMap.get(username);
 
 						Object[] messageArgs = {new Date(), message.getUsername(), message.getContents()};
-						MessageFormat rawMessageString = new MessageFormat("{0} <{1}> (whisper): {2}");
-						String messageFormattedString = rawMessageString.format(messageArgs);
+						String messageFormattedString = formatMessage("{0} <{1}> (whisper): {2}", messageArgs);
 						message.setContents(messageFormattedString);
 
 						String messageToUser = mapper.writeValueAsString(message);
@@ -69,29 +68,38 @@ public class ClientHandler implements Runnable {
 
 				switch (message.getCommand()) {
 					case "connect":
-						log.info("user <{}> connected", message.getUsername());
+						String username = message.getUsername();
+						log.info("user <{}> connected", username);
 
-						addActiveUser(message.getUsername(), this);
+						if (!userAlreadyExists(username)) {
+							addActiveUser(message.getUsername(), this);
 
-						Object[] connectArgs = {new Date(), message.getUsername()};
-						MessageFormat rawConnectString = new MessageFormat("{0} <{1}> has connected");
-						String connectFormattedString = rawConnectString.format(connectArgs);
-						message.setContents(connectFormattedString);
+							Object[] connectArgs = {new Date(), message.getUsername()};
+							String connectionString = formatMessage("{0} <{1}> has connected", connectArgs);
 
-						String messageUserHasConnected = mapper.writeValueAsString(message);
-						sendMessageToAllActiveUsers(messageUserHasConnected);
+							message.setContents(connectionString);
+
+							String userHasConnected = mapper.writeValueAsString(message);
+							sendMessageToAllUsers(userHasConnected);
+						} else {
+							String userNameTaken = "Username <" + username + "> " + "is taken. Please try another username.";
+							message.setContents(userNameTaken);
+							String nameTaken = mapper.writeValueAsString(message);
+							writer.write(nameTaken);
+							writer.flush();
+							this.socket.close();
+						}
 						break;
 
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
 
 						Object[] disconnectArgs = {new Date(), message.getUsername()};
-						MessageFormat rawDisconnectString = new MessageFormat("{0} <{1}> has disconnected");
-						String disconnectFormattedString = rawDisconnectString.format(disconnectArgs);
+						String disconnectFormattedString = formatMessage("{0} <{1}> has disconnected", disconnectArgs);
 						message.setContents(disconnectFormattedString);
 
-						String messageUserHasDisconnected = mapper.writeValueAsString(message);
-						sendMessageToAllActiveUsers(messageUserHasDisconnected);
+						String userHasDisconnected = mapper.writeValueAsString(message);
+						sendMessageToAllUsers(userHasDisconnected);
 
 						this.socket.close();
 						break;
@@ -100,8 +108,7 @@ public class ClientHandler implements Runnable {
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
 
 						Object[] echoArgs = {new Date(), message.getUsername(), message.getContents()};
-						MessageFormat rawEchoString = new MessageFormat("{0} <{1}> (echo): {2}");
-						String echoFormattedString = rawEchoString.format(echoArgs);
+						String echoFormattedString = formatMessage("{0} <{1}> (echo): {2}", echoArgs);
 						message.setContents(echoFormattedString);
 
 						String response = mapper.writeValueAsString(message);
@@ -113,20 +120,19 @@ public class ClientHandler implements Runnable {
 						log.info("user <{}> broadcast message <{}>", message.getUsername(), message.getContents());
 
 						Object[] broadcastArgs = {new Date(), message.getUsername(), message.getContents()};
-						MessageFormat rawBroadcastString = new MessageFormat("{0} <{1}> (all): {2}");
-						String formattedString = rawBroadcastString.format(broadcastArgs);
-						message.setContents(formattedString);
+						String broadcastFormattedString = formatMessage("{0} <{1}> (all): {2}", broadcastArgs);
+						message.setContents(broadcastFormattedString);
 
-						String messageToBroadCast = mapper.writeValueAsString(message);
-						sendMessageToAllActiveUsers(messageToBroadCast);
+						String broadcastMessage = mapper.writeValueAsString(message);
+						sendMessageToAllUsers(broadcastMessage);
 						break;
 
 					case "users":
 						log.info("user <{}> requested active users", message.getUsername());
 						List<String> activeUsers = getAllActiveUsers();
-						// TODO the date comes out different here
-						// Example: Wed Mar 08 14:33:09 CST 2017
-						String rawActiveUsersString = new Date() + ": currently connected users:";
+
+						String rawActiveUsersString = new SimpleDateFormat("M/d/yyyy h:m a").format(new Date())
+								                                           + ": currently connected users:";
 						for (String user : activeUsers) {
 							rawActiveUsersString += "\n" + "<" + user + ">";
 						}
@@ -137,13 +143,12 @@ public class ClientHandler implements Runnable {
 						writer.flush();
 				}
 			}
-
 		} catch (IOException e) {
 			log.error("Something went wrong :/", e);
 		}
 	}
 
-	private void sendMessageToAllActiveUsers(String messageToSend) {
+	private void sendMessageToAllUsers(String messageToSend) {
 		for (ClientHandler client : Server.activeUserList) {
 			try {
 				Socket clientSocket = client.getSocket();
@@ -164,9 +169,14 @@ public class ClientHandler implements Runnable {
 			printWriter.write(messageToSend);
 			printWriter.flush();
 		} catch (IOException e) {
-			log.error("Error sending direct message");
+			log.error("Error sending direct message to: " + targetSocket);
 			e.printStackTrace();
 		}
+	}
+
+	private String formatMessage(String unformattedString, Object[] args) {
+		MessageFormat rawString = new MessageFormat(unformattedString);
+		return rawString.format(args);
 	}
 
 	private void addActiveUser(String userName, ClientHandler clientHandler) {
@@ -176,6 +186,10 @@ public class ClientHandler implements Runnable {
 	private List<String> getAllActiveUsers(){
 		List<String> currentActiveUsers = new ArrayList<>(activeUserMap.keySet());
 		return currentActiveUsers;
+	}
+
+	private boolean userAlreadyExists(String username) {
+		return activeUserMap.containsKey(username);
 	}
 
 

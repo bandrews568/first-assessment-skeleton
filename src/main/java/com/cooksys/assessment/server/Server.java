@@ -32,7 +32,7 @@ public class Server implements Runnable {
 			while (true) {
 				Socket socket = ss.accept();
 				ClientHandler handler = new ClientHandler(socket);
-				activeUserList.add(handler); // Add user to active users to keep track of them for the broadcast message
+				activeUserList.add(handler);
 				executor.execute(handler);
 			}
 		} catch (IOException e) {

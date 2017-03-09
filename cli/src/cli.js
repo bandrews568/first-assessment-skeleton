@@ -22,6 +22,16 @@ cli
         })
 
         server.on('data', (buffer) => {
+            let inputString = Message.fromJSON(buffer).toString()
+
+            if (inputString.includes("(echo)")) {
+                this.log(cli.chalk['blue'](inputString))
+            } else if (inputString.includes("(all)")) {
+                this.log(cli.chalk['yellow'](inputString))
+            } else if (inputString.includes("(whisper)")) {
+                this.log(cli.chalk['magenta'](inputString))
+            } else if ()
+
             this.log(Message.fromJSON(buffer).toString())
         })
 
@@ -30,7 +40,7 @@ cli
         })
     })
     .action(function (input, callback) {
-        const [command, ...rest] = words(input)
+        const [command, ...rest] = input.replace(/--|-/, "").split(" ")
         const contents = rest.join(' ')
 
         if (command === 'disconnect') {
@@ -39,7 +49,7 @@ cli
             server.write(new Message({username, command, contents}).toJSON() + '\n')
         } else if (command === 'broadcast') {
             server.write(new Message({username, command, contents}).toJSON() + '\n')
-        } else if (command.startsWith('to')) {
+        } else if (command.startsWith('@')) {
             server.write(new Message({username, command, contents}).toJSON() + '\n')
         } else if (command === 'users') {
             server.write(new Message({username, command, contents}).toJSON() + '\n')

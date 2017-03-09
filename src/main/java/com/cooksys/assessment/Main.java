@@ -12,22 +12,22 @@ import org.slf4j.LoggerFactory;
 import com.cooksys.assessment.server.Server;
 
 public class Main {
-	private static Logger log = LoggerFactory.getLogger(Main.class);
+    private static Logger log = LoggerFactory.getLogger(Main.class);
 
-	public static void main(String[] args) {
-		ExecutorService executor = Executors.newCachedThreadPool();
-		
-		Server server = new Server(8080, executor);
-		
-		Future<?> done = executor.submit(server);
-		
-		try {
-			done.get();
-			executor.shutdown();
-			executor.awaitTermination(5, TimeUnit.SECONDS);
-		} catch (InterruptedException | ExecutionException e) {
-			log.error("Something went wrong :/", e);
-		}
-	}
-	
+    public static void main(String[] args) {
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        Server server = new Server(8080, executor);
+
+        Future<?> done = executor.submit(server);
+
+        try {
+            done.get();
+            executor.shutdown();
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Something went wrong :/", e);
+        }
+    }
+
 }

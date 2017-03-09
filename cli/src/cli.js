@@ -38,6 +38,8 @@ cli
                 this.log(cli.chalk['white'](inputString))
             } else if (inputString.includes("currently connected users:")) {
                 this.log(cli.chalk['red'](inputString))
+            } else {
+                this.log(cli.chalk['green'](inputString))
             }
         })
 
@@ -46,31 +48,25 @@ cli
         })
     })
     .action(function (input, callback) {
-        let [command, ...rest] = input.replace(/--|-/, "").split(" ")
+        let [command, ...rest] = input.split(" ")
         let contents = rest.join(' ')
 
         let commands = ['echo', 'broadcast', 'users']
 
         if (command === 'disconnect') {
             server.end(new Message({username, command}).toJSON() + '\n')
-        } else if (command.startsWith("@")) {
+        } else if (command.startsWith("@") || commands.indexOf(command) > -1) {
             server.write(new Message({username, command, contents}).toJSON() + '\n')
-            lastCommand = command
-            this.log(lastCommand)
-        } else if (commands.indexOf(command) > -1) {
-            server.write(new Message({username, command, contents}).toJSON() + '\n')
-            this.log(command)
             lastCommand = command
         } else {
             if (lastCommand === null) {
                 this.log(`Command <${command}> was not recognized`)
             } else {
-                contents = command
+                contents = command +  " " + contents
                 command = lastCommand
                 server.write(new Message({username, command, contents}).toJSON() + '\n')
             }
         }
-
         callback()
     })
 

@@ -26,21 +26,24 @@ cli
         server.on('data', (buffer) => {
             let inputString = Message.fromJSON(buffer).toString()
 
+            let color
+
             if (inputString.includes("(echo)")) {
-                this.log(cli.chalk['blue'](inputString))
+                color = 'blue'
             } else if (inputString.includes("(all)")) {
-                this.log(cli.chalk['yellow'](inputString))
+                color = 'yellow'
             } else if (inputString.includes("(whisper)")) {
-                this.log(cli.chalk['magenta'](inputString))
+                color = 'magenta'
             } else if (inputString.includes("has connected")) {
-                this.log(cli.chalk['cyan'](inputString))
+                color = 'cyan'
             } else if (inputString.includes("has disconnected")) {
-                this.log(cli.chalk['white'](inputString))
+                color = 'white'
             } else if (inputString.includes("currently connected users:")) {
-                this.log(cli.chalk['red'](inputString))
+                color = 'red'
             } else {
-                this.log(cli.chalk['green'](inputString))
+                color = 'green'
             }
+            this.log(cli.chalk[color](inputString))
         })
 
         server.on('end', () => {
